@@ -70,7 +70,8 @@ describe('Login7Payload', function() {
           2 +
           2 * payload.changePassword.length +
           4 + // cbSSPILong
-          0; // No FeatureExt for TDS 7.2
+          4 + // Extension offset (always written for Fabric compatibility)
+          1; // FEATURE_EXT_TERMINATOR (no UTF8_SUPPORT for TDS 7.2)
 
         assert.lengthOf(data, expectedLength);
 
@@ -123,7 +124,8 @@ describe('Login7Payload', function() {
           2 + 2 + (2 * payload.attachDbFile.length) +
           2 + 2 + (2 * payload.changePassword.length) +
           4 + // cbSSPILong
-          0; // No FeatureExt for TDS 7.2
+          4 + // Extension offset (always written for Fabric compatibility)
+          1; // FEATURE_EXT_TERMINATOR (no UTF8_SUPPORT for TDS 7.2)
 
         assert.lengthOf(data, expectedLength);
       });
@@ -286,6 +288,57 @@ describe('Login7Payload', function() {
           1 + (1 + 4 + 1) + (1 + 4 + 1) + 1; // Feature ext - v7.4 includes UTF8_SUPPORT unlike prior versions
 
         assert.lengthOf(data, expectedLength);
+      });
+    });
+
+    describe('FeatureExtensions position (Fabric compatibility)', function() {
+      it('writes extension data at the END of the packet, after all variable data', function() {
+        const payload = new Login7Payload({
+          tdsVersion: 0x74000004,
+          packetSize: 1024,
+          clientProgVer: 0,
+          clientPid: 12345,
+          connectionId: 0,
+          clientTimeZone: 120,
+          clientLcid: 0x00000409
+        });
+
+        payload.hostname = 'testhost';
+        payload.appName = 'testapp';
+        payload.serverName = 'testserver';
+        payload.database = 'testdb';
+        payload.libraryName = 'Tedious';
+
+        const data = payload.toBuffer();
+
+        // The ibExtension field is at offset 56 in the fixed header (after ibServerName/cchServerName)
+        // Fixed header layout up to ibExtension:
+        // 0-3: Length, 4-7: TDSVersion, 8-11: PacketSize, 12-15: ClientProgVer,
+        // 16-19: ClientPID, 20-23: ConnectionID, 24: OptionFlags1, 25: OptionFlags2,
+        // 26: TypeFlags, 27: OptionFlags3, 28-31: ClientTimZone, 32-35: ClientLCID,
+        // 36-37: ibHostName, 38-39: cchHostName, 40-41: ibUserName, 42-43: cchUserName,
+        // 44-45: ibPassword, 46-47: cchPassword, 48-49: ibAppName, 50-51: cchAppName,
+        // 52-53: ibServerName, 54-55: cchServerName, 56-57: ibExtension
+        const extensionOffset = data.readUInt16LE(56);
+
+        // Calculate expected offset - extensions should be after all variable data
+        const fixedDataSize = 94;
+        const variableDataSize =
+          2 * payload.hostname.length +
+          2 * payload.appName.length +
+          2 * payload.serverName.length +
+          2 * payload.libraryName.length +
+          2 * payload.database.length;
+
+        const expectedExtensionOffset = fixedDataSize + variableDataSize;
+
+        // Verify extensions are written at the expected position (after all variable data)
+        assert.equal(extensionOffset, expectedExtensionOffset,
+                     'Extension offset should point to position after all variable data');
+
+        // Verify the last byte of the packet is the FEATURE_EXT_TERMINATOR (0xFF)
+        assert.equal(data[data.length - 1], 0xFF,
+                     'Last byte should be FEATURE_EXT_TERMINATOR');
       });
     });
   });

@@ -251,20 +251,13 @@ class Login7Payload {
     }
 
     // (ibUnused / ibExtension): 2-byte
-    offset = fixedData.writeUInt16LE(dataOffset, offset);
+    // Save offset position for later update - extensions must be written at the END
+    // of the packet for Microsoft Fabric compatibility (stricter TDS validation)
+    const extensionOffsetHeaderOffset = offset;
+    offset = fixedData.writeUInt16LE(0, offset);  // Placeholder, will update later
 
-    // (cchUnused / cbExtension): 2-byte
-    if (this.tdsVersion >= versions['7_4']) {
-      const extensions = this.buildFeatureExt();
-      offset = fixedData.writeUInt16LE(4 + extensions.length, offset);
-      const extensionOffset = Buffer.alloc(4);
-      extensionOffset.writeUInt32LE(dataOffset + 4, 0);
-      dataOffset += 4 + extensions.length;
-      buffers.push(extensionOffset, extensions);
-    } else {
-      // For TDS < 7.4, these are unused fields
-      offset = fixedData.writeUInt16LE(0, offset);
-    }
+    // (cchUnused / cbExtension): 2-byte - size of the extension offset pointer
+    offset = fixedData.writeUInt16LE(4, offset);
 
     // ibCltIntName: 2-byte
     offset = fixedData.writeUInt16LE(dataOffset, offset);
@@ -370,6 +363,15 @@ class Login7Payload {
       fixedData.writeUInt32LE(0, offset);
     }
 
+    // Write FeatureExtensions at the END of the packet (required for Fabric compatibility)
+    // Update the placeholder we wrote earlier with the actual offset
+    fixedData.writeUInt16LE(dataOffset, extensionOffsetHeaderOffset);
+
+    const extensions = this.buildFeatureExt();
+    const extensionOffset = Buffer.alloc(4);
+    extensionOffset.writeUInt32LE(dataOffset + 4, 0);
+    buffers.push(extensionOffset, extensions);
+
     const data = Buffer.concat(buffers);
     data.writeUInt32LE(data.length, 0);
     return data;
@@ -417,14 +419,16 @@ class Login7Payload {
       }
     }
 
-    // Signal UTF-8 support: Value 0x0A, bit 0 must be set to 1. Added in TDS 7.4.
-    const UTF8_SUPPORT_FEATURE_ID = 0x0a;
-    const UTF8_SUPPORT_CLIENT_SUPPORTS_UTF8 = 0x01;
-    const buf = Buffer.alloc(6);
-    buf.writeUInt8(UTF8_SUPPORT_FEATURE_ID, 0);
-    buf.writeUInt32LE(1, 1);
-    buf.writeUInt8(UTF8_SUPPORT_CLIENT_SUPPORTS_UTF8, 5);
-    buffers.push(buf);
+    if (this.tdsVersion >= versions['7_4']) {
+      // Signal UTF-8 support: Value 0x0A, bit 0 must be set to 1. Added in TDS 7.4.
+      const UTF8_SUPPORT_FEATURE_ID = 0x0a;
+      const UTF8_SUPPORT_CLIENT_SUPPORTS_UTF8 = 0x01;
+      const buf = Buffer.alloc(6);
+      buf.writeUInt8(UTF8_SUPPORT_FEATURE_ID, 0);
+      buf.writeUInt32LE(1, 1);
+      buf.writeUInt8(UTF8_SUPPORT_CLIENT_SUPPORTS_UTF8, 5);
+      buffers.push(buf);
+    }
 
     buffers.push(Buffer.from([FEATURE_EXT_TERMINATOR]));
 
