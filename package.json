@@ -1,19 +1,7 @@
 {
-  "author": "Mike D Pilsbury <mike.pilsbury@gmail.com>",
-  "contributors": [
-    "Alex Robson",
-    "Arthur Schreiber",
-    "Bret Copeland <bret@atlantisflight.org> (https://github.com/bretcope)",
-    "Bryan Ross <bryan@rossipedia.com> (https://github.com/rossipedia)",
-    "Ciaran Jessup <ciaranj@gmail.com>",
-    "Cort Fritz <cfritz@caa.com>",
-    "lastonesky",
-    "Patrik Simek <patrik@patriksimek.cz>",
-    "Phil Dodderidge <pdodde@poyntz.com>",
-    "Zach Aller"
-  ],
-  "name": "tedious",
-  "description": "A TDS driver, for connecting to MS SQLServer databases.",
+  "author": "Gaxx<damn.frank2z@gmail.com>",
+  "name": "tedious-fabric",
+  "description": "A TDS driver for MS SQL Server with Microsoft Fabric support. Fork of tedious.",
   "keywords": [
     "sql",
     "database",
@@ -22,12 +10,12 @@
     "sql-server",
     "tds",
     "msnodesql",
-    "azure"
+    "azure",
+    "fabric",
+    "microsoft-fabric"
   ],
-  "homepage": "https://github.com/tediousjs/tedious",
-  "bugs": "https://github.com/tediousjs/tedious/issues",
   "license": "MIT",
-  "version": "0.0.0-dev",
+  "version": "1.0.1",
   "main": "./lib/tedious.js",
   "types": "./lib/tedious.d.ts",
   "repository": {
@@ -38,8 +26,7 @@
     "node": ">=18.17"
   },
   "publishConfig": {
-    "tag": "next",
-    "provenance": true
+    "access": "public"
   },
   "dependencies": {
     "@azure/core-auth": "^1.7.2",
